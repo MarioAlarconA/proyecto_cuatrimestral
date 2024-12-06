@@ -1,34 +1,85 @@
-import { Request, Response } from "express"
-import { QuestionModel } from "../models/QuestionModel"
+import { Request, Response } from "express";
+import { IQuestion, IForm } from "../GlobalTypes";
+import { QuestionModel } from "../models/QuestionModel";
+import { FormModel } from "../models/FormModel";
+import { OptionsModel } from "../models/OptionsModel";
+import { UserModel } from "../models/UserModel";
 
-export const registerQuestionnaire = async (req:Request, res:Response): Promise<any> =>{
-    try{
-        const title = req.body.title
-        const type = req.body.type
-        const isMandatory = req.body.isMandatory
-        const qstId = req.body.qstId
 
-        if(!title || !type || !isMandatory || !qstId){
-            return res.status(400).json({
-                msg:"faltan datos we"
-            })
+export const createQuizz = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const body = req.body;
+        if (!body.description || !body.title || !body.userId) {
+            res.status(400).json({ msg: "Faltan datos para crear un cuestionario" })
+        }
+        const questionnaire: IForm = {
+            description: body.description,
+            title: body.title,
+            userId: body.userId
         }
 
-        const questionnaire = await QuestionModel.create({
-            title: title,
-            type: type,
-            isMandatory: isMandatory,
-            qstId: qstId
-        })
+        let isInvalidQuestion = false;
+        for (const question of body.questions) {
+            if (!question.title || !question.type || typeof question.isMandatory == "undefined") {
+                isInvalidQuestion = true;
+            }
+            if (question.options.length <= 0 || !question.options[0] || question.options[0].length <= 0) {
+                isInvalidQuestion = true
+            }
+        }
 
-        return res.status(200).json({
-            msg:"cuestionario registrado con exito"
-        })
-    } catch (error){
-        console.log(error)
-        return res.status(500).json({
-            msg:"error"
-        })
+        if (isInvalidQuestion) {
+            res.status(400).json({ msg: "Faltan datos para crear un cuestionario (en preguntas)" })
+            return
+        }
+        const createdQuestionnaire = await FormModel.create(questionnaire);
+        for (const question of body.questions) {
+            const objQuestion = {
+                title: question.title,
+                type: question.type,
+                isMandatory: question.isMandatory,
+                questionnaireId: createdQuestionnaire._id
+            };
+            const createdQuestion = await QuestionModel.create(objQuestion);
+            for (const option of question.options) {
+                const objOption = {
+                    title: option,
+                    questionId: createdQuestion._id
+                }
+                await OptionsModel.create(objOption);
+            }
+        }
+        res.status(200).json({ msg: "Cuestionario creado con exito" })
+        return
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ msg: "Hubo un error al crear el cuestionario" })
+        return
     }
 }
 
+export const getMetrics = async (req: Request, res: Response): Promise<void>=>{
+    try{
+        const numberOFUsers = await UserModel.find({rol:"client"}).countDocuments();
+        const numberOFQuestionnaires = await FormModel.find().countDocuments();
+        res.status(200).json({msg:"datos obtenidos", numberOFQuestionnaires,numberOFUsers});
+    } catch (error){
+        console.log(error);
+        res.status(500).json({msg:"hubo un error al crear cuestionario"})
+            return
+        
+    }
+}
+
+export const getQuestionnaires = async (req: Request, res: Response): Promise<void>=>{
+    try{
+        const questionnaires = await FormModel.find()
+        res.status(200).json({msg: "cuaestionario obtenido",questionnaires})
+        return
+    } catch (error){
+        console.log(error);
+        res.status(500).json({msg:"hubo un error al crear cuestionario"})
+            return
+        
+    }
+}

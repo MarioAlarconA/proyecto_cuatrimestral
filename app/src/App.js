@@ -1,13 +1,11 @@
 import { useState } from "react";
 import { Button, Card, Col, Container, Form, Row } from "react-bootstrap";
 import axios from "axios";
-import { useNavigate } from 'react-router-dom';
-
+import { useNavigate } from "react-router-dom";
 
 const App = () => {
-  const navigate = useNavigate();
   const [data, setData] = useState({});
-
+  const navigate = useNavigate();
   const onChange = (e) => {
     e.preventDefault();
     const loginData = data;
@@ -16,18 +14,19 @@ const App = () => {
   }
 
   const onSubmit = async () => {
-    //Peticion a la DB
     try {
-      data.rol="client"
-      const res = await axios.post("http://localhost:4000/users/login",data)
-      
-      const user = res.data.user
+      const res = await axios.post("http://localhost:4000/users/sign-in", data);
+      const user = res.data.user;
       user.logined = true;
-      localStorage.user =JSON.stringify(user)
-      navigate("/list-q")
-  } catch (error) {
+      localStorage.user = JSON.stringify(user)
+      if(user.rol == "administrador"){
+        navigate("/home")
+      }else{
+        navigate("/list-q")
+      }
+    } catch (error) {
       alert("Incorrecto")
-  }
+    }
   }
 
   return (
